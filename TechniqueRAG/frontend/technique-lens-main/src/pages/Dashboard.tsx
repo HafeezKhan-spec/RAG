@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { GuestBanner } from "@/components/GuestBanner";
@@ -56,9 +56,36 @@ const Dashboard = () => {
 
     setAnalyzing(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const analysis = generateMockAnalysis(inputText);
+    try {
+      let analysis: AnalysisResult;
+
+      if (guest) {
+        // Use mock data for guests to avoid backend dependency if offline/demo
+        // Or could enable backend for guests too if desired. 
+        // For now, let's switch everyone to real backend if possible, or keep guest mock?
+        // Let's try real backend for everyone first, fallback to mock if error?
+        // Actually, user wants "real" results.
+        
+        // Let's call the backend
+        const response = await fetch("http://localhost:5000/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: inputText }),
+        });
+
+        if (!response.ok) throw new Error("Analysis failed");
+        analysis = await response.json();
+      } else {
+        const response = await fetch("http://localhost:5000/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: inputText }),
+        });
+
+        if (!response.ok) throw new Error("Analysis failed");
+        analysis = await response.json();
+      }
+
       setResult(analysis);
       
       // Save to history
@@ -85,12 +112,23 @@ const Dashboard = () => {
         }).catch(() => {});
       }
 
-      setAnalyzing(false);
       toast({
         title: "Analysis Complete",
         description: `Detected ${analysis.techniques.length} MITRE ATT&CK techniques.`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not connect to analysis engine. Using offline mode.",
+        variant: "destructive",
+      });
+      // Fallback to mock
+      const mockAnalysis = generateMockAnalysis(inputText);
+      setResult(mockAnalysis);
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const handleClear = () => {
@@ -100,6 +138,13 @@ const Dashboard = () => {
 
   const loadSample = () => {
     setInputText(sampleCTIText);
+  };
+
+  // Use a ref for the file input to avoid label/button nesting issues
+  const hiddenFileInput = React.useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    hiddenFileInput.current?.click();
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,6 +161,16 @@ const Dashboard = () => {
       return;
     }
 
+    // Validate file size (max 5MB to prevent browser crash)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload a file smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
@@ -125,7 +180,16 @@ const Dashboard = () => {
         description: `Successfully loaded ${file.name}`,
       });
     };
+    reader.onerror = () => {
+        toast({
+            title: "Read Error",
+            description: "Failed to read the file.",
+            variant: "destructive",
+        });
+    };
     reader.readAsText(file);
+    // Reset input so same file can be selected again if needed
+    e.target.value = "";
   };
 
   const exportResults = (format: 'json' | 'csv' | 'pdf') => {
@@ -191,20 +255,25 @@ const Dashboard = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <Label htmlFor="file-upload" className="cursor-pointer">
-                  <Button variant="outline" size="sm" asChild className="border-border">
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload File
-                    </span>
-                  </Button>
-                </Label>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleUploadClick}
+                  className="border-border"
+                  type="button"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload File
+                </Button>
+                
                 <input
+                  ref={hiddenFileInput}
                   id="file-upload"
                   type="file"
                   accept=".txt,.json"
                   onChange={handleFileUpload}
                   className="hidden"
+                  style={{ display: 'none' }}
                 />
                 <span className="text-xs text-muted-foreground">
                   Accepts .txt, .json files

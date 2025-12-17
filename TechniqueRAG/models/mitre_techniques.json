@@ -2,16 +2,22 @@
   {
     "id": "T1566",
     "name": "Phishing",
-    "description": "Adversaries send phishing messages to steal credentials or deliver malware."
+    "description": "Adversaries send phishing messages to steal credentials or deliver malware.",
+    "tacticId": "TA0001",
+    "tacticName": "Initial Access"
   },
   {
     "id": "T1059",
     "name": "Command and Scripting Interpreter",
-    "description": "Adversaries abuse command-line interfaces or scripting languages."
+    "description": "Adversaries abuse command-line interfaces or scripting languages.",
+    "tacticId": "TA0002",
+    "tacticName": "Execution"
   },
   {
     "id": "T1078",
     "name": "Valid Accounts",
-    "description": "Adversaries use stolen credentials to access systems."
+    "description": "Adversaries use stolen credentials to access systems.",
+    "tacticId": "TA0005",
+    "tacticName": "Defense Evasion"
   }
 ]

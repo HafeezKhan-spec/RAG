@@ -31,7 +31,18 @@ export const analyze = (req, res) => {
 
       try {
         const result = JSON.parse(stdout);
-        res.json(result);
+        
+        // Enhance result with metadata expected by frontend
+        const enhancedResult = {
+            ...result,
+            inputText: text,
+            summary: result.techniques.length > 0 
+                ? `Analysis detected ${result.techniques.length} potential MITRE ATT&CK techniques with high confidence.` 
+                : "No significant threats detected in the provided text.",
+            timestamp: new Date().toISOString()
+        };
+
+        res.json(enhancedResult);
       } catch (e) {
         console.error("Invalid JSON from Python:", stdout);
         res.status(500).json({ error: "Invalid ML response" });

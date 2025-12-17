@@ -2,8 +2,7 @@ import sys
 import os
 import json
 import torch
-from sentence_transformers import SentenceTransformer
-from torch.nn.functional import cosine_similarity
+from sentence_transformers import SentenceTransformer, util
 
 # ---------------- CONFIG ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +27,8 @@ with open(MITRE_FILE, "r", encoding="utf-8") as f:
 tech_ids = [t["id"] for t in techniques]
 tech_names = [t["name"] for t in techniques]
 tech_texts = [t["description"] for t in techniques]
+tech_tactic_ids = [t.get("tacticId", "Unknown") for t in techniques]
+tech_tactic_names = [t.get("tacticName", "Unknown") for t in techniques]
 
 # ---------------- PRECOMPUTE EMBEDDINGS ----------------
 tech_embeddings = embedder.encode(
@@ -46,9 +47,12 @@ def run_pipeline(text: str):
         normalize_embeddings=True
     )
 
-    sims = cosine_similarity(query_emb, tech_embeddings)[0]
-
-    top_scores, top_indices = torch.topk(sims, k=TOP_K)
+    # Use util.cos_sim which handles shapes correctly (returns 1xN matrix)
+    sims = util.cos_sim(query_emb, tech_embeddings)[0]
+    
+    # Ensure k is not larger than available techniques
+    k = min(TOP_K, len(sims))
+    top_scores, top_indices = torch.topk(sims, k=k)
 
     techniques = []
 
@@ -59,7 +63,9 @@ def run_pipeline(text: str):
                 "id": tech_ids[int(idx)],
                 "name": tech_names[int(idx)],
                 "confidence": round(score, 4),
-                "description": tech_texts[int(idx)]
+                "description": tech_texts[int(idx)],
+                "tacticId": tech_tactic_ids[int(idx)],
+                "tacticName": tech_tactic_names[int(idx)]
             })
 
     if not techniques:
